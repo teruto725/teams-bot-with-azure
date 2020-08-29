@@ -54,7 +54,7 @@ word ansコマンドを用いた場合は正しい答えが返されます。そ
 
 またユーザは自分でMessengerを作成することができます。
 
-1. []にアクセスしてMessengerTemplate.jsonをダウンロードします。
+1. teams-file-upload>Files>sample.jsonにアクセスしてMessengerTemplate.jsonをダウンロードします。
 2. ファイルのメッセージ部分を編集します(文字コードがUTF-8にしてください)
 3. messenger add "Messengerの名前"　右のコマンドにjsonファイルを添付し送信することでMessengerを登録できます。(「このファイルは既に存在します」というメッセージが出た時は必ず「両方を保持」を選択してください)
 
