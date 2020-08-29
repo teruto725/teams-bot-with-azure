@@ -34,14 +34,16 @@ namespace Microsoft.BotBuilderSamples.Bots
             var message = turnContext.Activity.RemoveRecipientMention();//message that mention deleted
             
             string[] mlist = message.Split(" ");
+            Debug.WriteLine("Get Message");
             ChannelAccount user = turnContext.Activity.From;//メッセージを送ってきたuser
-            Debug.WriteLine(turnContext.Activity.From);
-            if (mlist[0] == "word" )
+            if (mlist[0] == "word")
             {
+                Debug.WriteLine("if word");
                 WordBook yourWb = WordBooks.getYourBook(user);//userのwordbookを取得
+
                 yourWb.receiveWordMessage(turnContext, cancellationToken, _clientFactory).Wait();
             }
-            if (mlist[0] == "messenger")
+            else if (mlist[0] == "messenger")
             {
                 WordBook yourWb = WordBooks.getYourBook(user);//userのwordbookを取得
                 yourWb.receiveMessengerMessage(turnContext, cancellationToken, _clientFactory).Wait();
@@ -50,6 +52,10 @@ namespace Microsoft.BotBuilderSamples.Bots
             else if (message.Contains("echo"))//echobot
             {
                 await turnContext.SendActivityAsync(MessageFactory.Text(message, message), cancellationToken);
+            }
+            else if (mlist[0] == "help")
+            {
+                await turnContext.SendActivityAsync(MessageFactory.Text("https://github.com/teruto725/teams-bot-with-azure", "https://github.com/teruto725/teams-bot-with-azure"), cancellationToken);
             }
 
         }

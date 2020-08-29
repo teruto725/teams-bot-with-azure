@@ -9,6 +9,7 @@ using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Resources;
 using System.Threading;
 using System.Threading.Tasks;
 using TeamsFileUpload.Bots;
@@ -25,6 +26,7 @@ namespace Microsoft.BotBuilderSamples.Bots
             {
                 if (user.ToString().Equals(wb.user.ToString()))
                 {
+                    Debug.WriteLine("getYourBook:find your book");
                     return wb;
                 }
             }
@@ -33,6 +35,30 @@ namespace Microsoft.BotBuilderSamples.Bots
             wordbooks.Add(newWb);
             Debug.WriteLine("new book");
             return newWb;
+        }
+
+        public static int getRanking(int level, int exp)
+        {
+            int i = 0;
+            foreach (WordBook w in wordbooks)
+            {
+                if (level < w.lc.getLevel())
+                {
+                    i += 1;
+                }
+                else if (level == w.lc.getLevel())
+                {
+                    if (exp <= w.lc.getExp())
+                    {
+                        i += 1;
+                    }
+                    else
+                    {
+
+                    }
+                }
+            }
+            return i;
         }
     }
 
@@ -46,13 +72,57 @@ namespace Microsoft.BotBuilderSamples.Bots
         public Word askingWord =null ;
         public Word checkingWord = null;
         private Messenger messenger = Messengers.normal;
-        private int successcnt = 0; 
+        private int successcnt = 0;
+        public LevelCounter lc = new LevelCounter();
         public WordBook(ChannelAccount user)
         {
             this.user = user;
         }
 
-        //受け取ったメッセージに応じていろいろするクラス word **** **** て感じのめっそっど
+
+
+        ////// 汎用//////////////////////////////////////////////////////////////////////////////
+        //状態を返す。asking:質問中, checking:チェック中
+        private String getState()
+        {
+            if (askingWord != null && checkingWord == null)
+            {
+                return "asking";
+            }
+            else if (askingWord == null && checkingWord != null)
+            {
+                return "checking";
+            }
+            else
+            {
+                Debug.WriteLine("stateError");
+                return "state error";
+            }
+        }
+
+        //成功したとき
+        private void success()
+        {
+            successcnt += 1;
+            askingWord.success();
+            reply(messenger.getMessage(successcnt + "success")).Wait();
+            reply(successcnt + "expをゲットしました。").Wait();
+            if (lc.addExp(successcnt))
+            {
+                reply(messenger.getMessage("levelup")+"現在のレベルは"+lc.getLevel()).Wait();
+            }
+        }
+
+        //失敗したとき
+        private void miss()
+        {
+            successcnt = 0;
+            askingWord.miss();
+            reply(messenger.getMessage("miss")).Wait();
+        }
+
+        /// //////////////////////////////////////////////////////////////////////////
+        //wordコマンドに対していろいろするクラス word **** **** て感じのめっそっど
         public async Task receiveWordMessage(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken, IHttpClientFactory clientFactory)
         {
             updateContextToken(turnContext, cancellationToken, clientFactory);//各情報の更新
@@ -60,49 +130,76 @@ namespace Microsoft.BotBuilderSamples.Bots
             {
                 reply("wordの後にスペース入れてそのあとにメッセージを入れてほしいな").Wait();
             }
-            else if( getMessageSplit()[1] == "pic"){//画像入力
+            else if (getMessageSplit()[1] == "pic")
+            {//画像入力
                 addWordFromPic().Wait();//画像受け取ったらtemp単語を登録
             }
-            else if( getMessageSplit()[1] == "view" )
+            else if (getMessageSplit()[1] == "ranking")
             {
-                if (getMessageSplit()[2] == "words")//temp一覧を表示
+                int i = WordBooks.getRanking(lc.getLevel(),lc.getExp());
+                reply("あなたは世界ランキング"+i+"位です").Wait();
+            }
+            else if (getMessageSplit()[1] == "status")
+            {
+                reply(lc.getInfo()).Wait();
+            }
+            else if (getMessageSplit()[1] == "list")
+            {
+                try
                 {
-                    foreach(Word w in words.getWords())
+                    if (getMessageSplit()[2] == "word")//temp一覧を表示
                     {
-                        reply(w.ToString()).Wait();
+                        reply(words.indexWords()).Wait();
+                    }
+                    else if (getMessageSplit()[2] == "temp")
+                    {
+                        foreach (Word w in words.getTempWords())//words一覧を表示
+                        {
+                            reply(w.ToString()).Wait();
+                        }
                     }
                 }
-                else if(getMessageSplit()[2] == "temp")
+                catch
                 {
-                    foreach(Word w in words.getTempWords())//words一覧を表示
-                    {
-                        reply(w.ToString()).Wait();
-                    }
+                    reply("存在しないコマンドです。helpコマンドで確認してください").Wait();
                 }
             }
-            else if( getMessageSplit()[1] == "check")//test
+            else if (getMessageSplit()[1] == "check" )//picのチェック
             {
-                if ( getMessageSplit()[2] == "temp")
-                {
-                    checkAWordFromTemp().Wait();//tempワードから一つ取り出して単語帳に追加するかユーザに問う
-                }
-                if (getMessageSplit()[2] == "word")
-                {
-                    checkWord().Wait();
-                }
+                checkAWordFromTemp().Wait();//tempワードから一つ取り出して単語帳に追加するかユーザに問う
             }
-            
+
+            else if (getMessageSplit()[1] == "test")
+            {
+                testWord().Wait();
+            }
             else if (getMessageSplit()[1] == "ans")
             {
-                if ( getState() == "asking")
+
+                if (getState() == "asking")
                 {
-                    reply(askingWord.eng + "の意味は…" + askingWord.jap + "でした！わかりましたか？").Wait();
-                }  
+                    try//ユーザが答えを指定してきたとき
+                    {
+                        String ans = getMessageSplit()[2];
+                        if (askingWord.jap == ans)
+                        {
+                            success();
+                        }
+                        else 
+                        {
+                            miss();
+                        }
+                    }
+                    catch
+                    {
+                        reply(askingWord.eng + "の意味は…" + askingWord.jap + "でした！わかりましたか？").Wait();
+                    }
+                }
             }
-            
-            else if (getMessageSplit()[1] == "add")//新規単語追加
+            //新規単語追加
+            else if (getMessageSplit()[1] == "add")
             {
-                
+                Debug.WriteLine("word add");
                 String eng = getMessageSplit()[2];
                 String jap = getMessageSplit()[3];
                 if (words.addNewWord(eng, jap))
@@ -113,24 +210,121 @@ namespace Microsoft.BotBuilderSamples.Bots
                 {
                     reply(eng + "という単語は既に存在しています").Wait();
                 }
-                //word追加
+                
             }
-            
+
+            //csv取得
             else if (getMessageSplit()[1] == "tocsv")
             {
-                //csv出力
+                reply(words.getCsvStr()).Wait();
             }
-            
+
             else
             {
-                reply("ちょっと何言ってるかわからない（サンドウィッチマン）").Wait();
+                reply("コマンドが間違っています。helpコマンドで確認してください。変なスペースがまぎれてないかチェックしてください").Wait();
             }
 
         }
 
 
+        //tempワードから一つ取り出して単語帳に追加するかユーザに問う
+        private async Task checkAWordFromTemp()
+        {
+            Word w = words.getTempWord();
+            if (w == null)
+            {
+                reply("現在登録されているtempwordは存在しません。").Wait();
+            }
+            else
+            {
+                checkingWord = w;
+                askingWord = null;
+                reply("この単語を追加しますか？(英語:" + w.eng + "、日本語:" + w.jap).Wait();
+            }
+        }
 
+        //問題出題
+        private async Task testWord()
+        {
+            if (words.getWords().Count == 0)
+            {
+                reply("登録されている単語がありません").Wait();
+            }
+            else {
+                try
+                {
+                    if (getMessageSplit()[2] == "diff")
+                    {
+                        Word w = words.getMostDifficultWord();
+                        askingWord = w;
+                        reply("問題:" + askingWord.eng + messenger.getMessage("ask")).Wait();
+                    }
+                }
+                catch//ランダム出題
+                {
+                    Word w = words.getRandomWord();
+                    askingWord = w;
+                    reply("問題:" + askingWord.eng + messenger.getMessage("ask")).Wait();
+                }
+            }
+        }
 
+        // 画像から単語を抽出しwordsにtempで追加
+        private async Task addWordFromPic()
+        {
+            List<String> urls = await getPictureUrls();
+            if (urls.Count() == 0)
+            {
+                reply("画像が読み込めないよ！ごめんなさいm(__)m").Wait();
+                return;
+            }
+            else
+            {
+                List<String> engs = new List<string>();
+                foreach (String url in urls)
+                {
+                    using (Stream urlstream = File.OpenRead(url))
+                    {
+                        List<String> engsn = await cvClient.getTextFromPicture(urlstream);
+                        engs.AddRange(engsn);
+                    }
+                }
+                if (engs.Count == 0)
+                {
+                    reply("画像から文字を読み取れなかった！勉強不足(´；ω；`)ｳｩｩ").Wait();
+                    return;
+                }
+                else
+                {
+                    String replyStr = "";
+                    foreach (String eng in engs)
+                    {
+                        Debug.WriteLine(eng);
+                        String jap = tlClient.translateWord(eng, "en", "ja");
+                        if (jap != "Cant trance")
+                        {
+                            bool result = words.addTempWord(eng, jap);
+                            Debug.WriteLine("addTempWord" + result);
+                            if (result)
+                            {
+                                replyStr += eng + ":" + jap + ", ";
+                            }
+                        }
+                    }
+                    if (replyStr == "")
+                    {
+                        reply("画像から文字を読み取れなかった！ごめんなさい！").Wait();
+                    }
+                    else
+                    {
+                        reply("検出した単語" + replyStr).Wait();
+                    }
+                }
+            }
+        }
+
+        
+        /// /////////////////////////////////////////////////////////////////////////////////////////////
             //受け取ったりアクションに対していろいろする
         public async Task receiveReaction(ITurnContext<IMessageReactionActivity> turnContext, CancellationToken cancellationToken, IHttpClientFactory clientFactory)
         {
@@ -151,40 +345,21 @@ namespace Microsoft.BotBuilderSamples.Bots
             }
             catch
             {
-                reply(messenger.getMessage("error")).Wait();
                 reply("リアクションが取得できないです。リアクションを上書きしたりするとおこります。もう一度いちからやり直して見てください").Wait();
             }
         }
 
-        //tempワードから一つ取り出して単語帳に追加するかユーザに問う
-        private async Task checkAWordFromTemp()
-        {
-            Word w = words.getTempWord();
-            if (w == null)
-            {
-                reply("現在登録されているtempwordは存在しません。").Wait();
-            }
-            else
-            {
-                checkingWord = w;
-                askingWord = null;
-                reply("この単語を追加しますか？(英語:" + w.eng + "、日本語:" + w.jap).Wait();
-            }
-        }
-
+        
+        // askingのときのreaction処理
         private async Task receiveReactionAboutAsking(String reaction)
         {
             if (reaction == "laugh")
             {
-                successcnt += 1;
-                askingWord.success();
-                reply(messenger.getMessage(successcnt+"success")).Wait();
+                success();
             }
             else if(reaction == "sad")
             {
-                successcnt = 0;
-                askingWord.miss();
-                reply(messenger.getMessage("miss")).Wait();
+                miss();
             }
             else if(reaction == "like")
             {
@@ -197,6 +372,7 @@ namespace Microsoft.BotBuilderSamples.Bots
             }
         }
 
+        //checkingのときのreaction処理
         private async Task receiveReactionAboutChecking(String reaction)
         {
             if(reaction == "heart")
@@ -223,98 +399,9 @@ namespace Microsoft.BotBuilderSamples.Bots
             }
         }
 
-        //問題出題
-        private async Task checkWord()
-        {
-            Word w = words.getMostDifficultWord();
-            if (w == null)
-            {
-                reply("登録されている単語がありません....").Wait();
-            }
-            else
-            {
-                askingWord = w;
-                reply("問題:" + askingWord.eng + "の意味はなーんだ？？").Wait();
-            }
-        }
 
-        //状態を返す。asking:質問中, checking:チェック中
-        private String getState()
-        {
-            if (askingWord != null && checkingWord == null)
-            {
-                return "asking";
-            }
-            else if(askingWord == null && checkingWord != null)
-            {
-                return "checking";
-            }
-            else
-            {
-                Debug.WriteLine("stateError");
-                return "state error";
-            }
-        }
-
-        // 画像から単語を抽出しwordsにtempで追加
-        private async Task addWordFromPic()
-        {
-            List<String> urls = await getPictureUrls();
-            reply("urls").Wait();
-            if (urls.Count() == 0)
-            {
-                reply("画像が読み込めないよ！ごめんなさいm(__)m").Wait();
-                return;
-            }
-            else
-            {
-                List<String> engs = new List<string>();
-                foreach(String url in urls)
-                {
-                    using(Stream urlstream = File.OpenRead(url))
-                    {
-                        List<String> engsn = await cvClient.getTextFromPicture(urlstream);
-                        engs.AddRange(engsn);
-                    }
-                }
-                if(engs.Count == 0)
-                {
-                    reply("画像から文字を読み取れなかった！勉強不足(´；ω；`)ｳｩｩ").Wait();
-                    return;
-                }
-                else
-                {
-                    String replyStr = "";
-                    foreach (String eng in engs)
-                    {
-                        Debug.WriteLine(eng);
-                        String jap = tlClient.translateWord(eng, "en", "ja");
-                        if(jap != "Cant trance")
-                        {
-                            bool result = words.addTempWord(eng, jap);
-                            Debug.WriteLine("addTempWord" + result);
-                            if (result)
-                            {
-                                replyStr += eng + ":" + jap + ", ";
-                            }
-                        }
-                    }
-                    if (replyStr == "")
-                    {
-                        reply("画像から文字を読み取れなかった！ごめんなさい！").Wait();
-                    }
-                    else
-                    {
-                        reply("検出した単語" + replyStr).Wait();
-                    }
-                }
-            }
-        }
-
-
-
+        
         /// messenger系 /////////////////////////////////////////////////////////////////////////////////////////////////////////
-
         //messengerメッセージを受け取ったときの処理
         public async Task receiveMessengerMessage(ITurnContext<IMessageActivity> turnContext, CancellationToken cancellationToken, IHttpClientFactory clientFactory)
         {
@@ -347,10 +434,10 @@ namespace Microsoft.BotBuilderSamples.Bots
             }
         }
 
+        // messengerの追加
         private async Task addMessenger(String name)
         {
             List<String> urls = await getPictureUrls();
-            reply("urls").Wait();
             if (urls.Count() == 0)
             {
                 reply("ファイルが読み込めないよ！ごめんなさいm(__)m").Wait();
@@ -366,12 +453,13 @@ namespace Microsoft.BotBuilderSamples.Bots
                 else
                 {
                     messenger = m;
-                    reply(name + "messengerが追加されたよ！").Wait();
+                    reply("Messenger"+name + "が追加されたよ！").Wait();
                     reply("messengerが"+name+"に変更されました！").Wait();
                 }
             }
         }
 
+        // messengerのlist取得
         private async Task replyMessengerList()
         {
             reply("messengerの一覧です").Wait();
@@ -380,6 +468,7 @@ namespace Microsoft.BotBuilderSamples.Bots
             }
         }
 
+        // messenger のセット
         private async Task setMessager(String name)//nameからmessengerを取得してセットする
         {
             Messenger m = Messengers.getMessenger(name);

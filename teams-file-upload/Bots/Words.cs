@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
+using System.Threading;
 
 namespace Microsoft.BotBuilderSamples.Bots
 {
@@ -27,6 +29,7 @@ namespace Microsoft.BotBuilderSamples.Bots
 
         public Boolean addNewWord(String eng, String jap)
         {
+            Debug.WriteLine("addNewWord");
             Word w = new Word(eng, jap);
             if (checkExisting(w) == false)
             {
@@ -53,11 +56,19 @@ namespace Microsoft.BotBuilderSamples.Bots
             }
             return null;
         }
+        public Word getRandomWord()
+        {
+            Random r = new System.Random();
+            int rnd = r.Next(0, words.Count);
+            return words[rnd];
+        }
+        
 
         public Boolean addWordFromTemp(Word w)//tempwords内の単語を受け取ってwordsに追加するできなければfalse
         {
             if (tempwords.Contains(w))
             {
+                
                 words.Add(w);
                 tempwords.Remove(w);
                 return true;
@@ -103,7 +114,16 @@ namespace Microsoft.BotBuilderSamples.Bots
             return false;
         }
 
-        
+        //csv形式のメッセージを返す
+        public string getCsvStr()
+        {
+            string s = "";
+            foreach(Word w in getWords())
+            {
+                s += w.eng + "," + w.jap + "\n\n";
+            }
+            return s;
+        }
 
 
         public List<Word> getWords()
@@ -119,13 +139,31 @@ namespace Microsoft.BotBuilderSamples.Bots
         {
             words.Remove(w);
         }
+        public string indexWords()
+        {
+            Debug.WriteLine("indexWord:" + getWords().Count);
+
+            string s = "";
+            if (words.Count == 0)
+            {
+                return "登録されている単語がありません";
+            }
+            foreach (Word w in getWords())
+            {
+                s += w.info() + "\n\n" ;
+            }
+            
+            return s;
+        }
     }
 
     public class Word
     {
         public String eng;
         public String jap;
-        private double diff;
+        private double diff = 0;
+        private int misscount = 0;
+        private int successcount = 0;
         public Word(String eng, String jap)
         {
             this.eng = eng;
@@ -149,15 +187,21 @@ namespace Microsoft.BotBuilderSamples.Bots
         }
         public void miss()//失敗したときのdiff更新
         {
-            diff = diff * 0.9; 
+            diff = diff * 0.9;
+            misscount += 1;
         }
         public void success()//成功したときのdiff更新
         {
             diff = diff * 1.1;
+            successcount += 1;
         }
         public double getDiff()
         {
             return diff;
+        }
+        public string info()
+        {
+            return ("{\"スペル\":" + eng + ", \"意味\":" + jap + ", \"正解回数\":" + successcount + ", \"失敗回数\":" + misscount+"}");
         }
     }
 }

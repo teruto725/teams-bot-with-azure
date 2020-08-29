@@ -85,3 +85,6 @@ C:\Users\井原輝人\Desktop\undergoing\ai-bot-teams\teams-file-upload\obj\Debu
 C:\Users\井原輝人\Desktop\undergoing\ai-bot-teams\teams-file-upload\obj\Debug\netcoreapp3.1\TeamsFileUpload.genruntimeconfig.cache
 C:\Users\井原輝人\Desktop\undergoing\ai-bot-teams\teams-file-upload\bin\Debug\netcoreapp3.1\Files\normal.json
 C:\Users\井原輝人\Desktop\undergoing\ai-bot-teams\teams-file-upload\bin\Debug\netcoreapp3.1\Files\sample.json
+C:\Users\井原輝人\Desktop\undergoing\ai-bot-teams\teams-file-upload\bin\Debug\netcoreapp3.1\Files\sample (1).json
+C:\Users\井原輝人\Desktop\undergoing\ai-bot-teams\teams-file-upload\bin\Debug\netcoreapp3.1\Files\aori (1).json
+C:\Users\井原輝人\Desktop\undergoing\ai-bot-teams\teams-file-upload\bin\Debug\netcoreapp3.1\Files\aori.json

@@ -43,6 +43,9 @@ word ansコマンドを用いた場合は正しい答えが返されます。そ
 ### Messenger機能
 単語帳が返すメッセージをカスタマイズすることができます。
 
+
+./teams-file-upload/Files/sample.jsonを参考にしてください
+
 以下のコマンドですでに公開されているMessengerの名前一覧を取得できます。
 - messenger list
 
@@ -59,5 +62,4 @@ word ansコマンドを用いた場合は正しい答えが返されます。そ
 以下のコマンドを打つことで登録単語をcsv出力することができます。
 - word tocsv
  
-
-　
+ 
